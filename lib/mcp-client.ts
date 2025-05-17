@@ -1,5 +1,4 @@
-import { experimental_createMCPClient as createMCPClient } from 'ai';
-
+import { experimental_createMCPClient as createMCPClient } from "ai";
 
 export interface KeyValuePair {
   key: string;
@@ -8,7 +7,7 @@ export interface KeyValuePair {
 
 export interface MCPServerConfig {
   url: string;
-  type: 'sse' | 'stdio';
+  type: "sse" | "stdio" | "postMessage";
   command?: string;
   args?: string[];
   env?: KeyValuePair[];
@@ -36,15 +35,23 @@ export async function initializeMCPClients(
   // Process each MCP server configuration
   for (const mcpServer of mcpServers) {
     try {
-      // All servers are handled as SSE
-      const transport = {
-        type: 'sse' as const,
-        url: mcpServer.url,
-        headers: mcpServer.headers?.reduce((acc, header) => {
-          if (header.key) acc[header.key] = header.value || '';
-          return acc;
-        }, {} as Record<string, string>)
-      };
+      let transport;
+      switch (mcpServer.type) {
+        case "postMessage":
+          throw new Error(`NOT IMPLEMENTED`);
+          break;
+        default:
+          // Everything is SSE
+          transport = {
+            type: "sse" as const,
+            url: mcpServer.url,
+            headers: mcpServer.headers?.reduce((acc, header) => {
+              if (header.key) acc[header.key] = header.value || "";
+              return acc;
+            }, {} as Record<string, string>),
+          };
+          break;
+      }
 
       const mcpClient = await createMCPClient({ transport });
       mcpClients.push(mcpClient);
@@ -63,7 +70,7 @@ export async function initializeMCPClients(
 
   // Register cleanup for all clients if an abort signal is provided
   if (abortSignal && mcpClients.length > 0) {
-    abortSignal.addEventListener('abort', async () => {
+    abortSignal.addEventListener("abort", async () => {
       await cleanupMCPClients(mcpClients);
     });
   }
@@ -71,7 +78,7 @@ export async function initializeMCPClients(
   return {
     tools,
     clients: mcpClients,
-    cleanup: async () => await cleanupMCPClients(mcpClients)
+    cleanup: async () => await cleanupMCPClients(mcpClients),
   };
 }
 
@@ -84,4 +91,4 @@ async function cleanupMCPClients(clients: any[]): Promise<void> {
       console.error("Error closing MCP client:", error);
     }
   }
-} 
+}
